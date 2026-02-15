@@ -1,6 +1,11 @@
 import torch
 import torch.nn as nn
-from thop import profile 
+
+# Optional import for profiling (not required for training)
+try:
+    from thop import profile
+except ImportError:
+    profile = None 
 
 class SiLU(nn.Module):
     @staticmethod
@@ -297,6 +302,10 @@ class SPPELAN(nn.Module):
 
 
 def print_model_flops_and_params(model, inputs):
+    if profile is None:
+        print("Warning: thop module not installed. Cannot compute FLOPs.")
+        print("Install with: pip install thop")
+        return
     flops, params = profile(model, inputs=inputs)
     print(f"FLOPs: {flops / 1e9:.2f} GFLOPs")
     print(f"Parameters: {params / 1e6:.2f} M")
