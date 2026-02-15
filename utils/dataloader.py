@@ -205,74 +205,17 @@ class YoloDataset(Dataset):
             box_h = box[:, 3] - box[:, 1]
             box = box[np.logical_and(box_w>1, box_h>1)]
         
-        return image_data_v1, box, clear_image_data, image_data_v20, 2]] / self.input_shape[1]
-                box[:, [1, 3]] = box[:, [1, 3]] / self.input_shape[0]
-                box[:, 2:4] = box[:, 2:4] - box[:, 0:2]
-                box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2
-                labels_out[:, 1] = box[:, -1]
-                labels_out[:, 2:] = box[:, :4]
-            
-            return image_v1, image_v2, labels_out, clearimg
-        else:
-            # Original single hazy image mode
-            image, box, clearimg = self.get_random_data(
-                self.annotation_lines[index],
-                self.clean_lines[index],
-                self.input_shape,
-                random=self.train
-            )
-            image       = np.transpose(preprocess_input(np.array(image, dtype=np.float32)), (2, 0, 1))
-            box         = np.array(box, dtype=np.float32)
-            clearimg    = np.transpose(preprocess_input(np.array(clearimg, dtype=np.float32)), (2, 0, 1))
-            nL          = len(box)
-            labels_out  = np.zeros((nL, 6))
-            if nL:
-                box[:, [0, 2]] = box[:, [0, 2]] / self.input_shape[1]
-                box[:, [1, 3]] = box[:, [1, 3]] / self.input_shape[0]
-                box[:, 2:4] = box[:, 2:4] - box[:, 0:2]
-                box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2
-                labels_out[:, 1] = box[:, -1]
-                labels_out[:, 2:] = box[:, :4]
-            return image, labels_out, clearimg
+        return image_data_v1, box, clear_image_data, image_data_v2
     
-    """
-    Collate function supporting both single and dual fog views.
-    """
-    # Check if dual fog mode (4 items per batch element)
-    if len(batch[0]) == 4:
-        # Dual fog mode: (view1, view2, labels, clean)
-        images_v1 = []
-        images_v2 = []
-        bboxes = []
-        clearimg = []
-        
-        for i, (img_v1, img_v2, box, clear) in enumerate(batch):
-            images_v1.append(img_v1)
-            images_v2.append(img_v2)
-            box[:, 0] = i
-            bboxes.append(box)
-            clearimg.append(clear)
-        
-        images_v1 = torch.from_numpy(np.array(images_v1)).type(torch.FloatTensor)
-        images_v2 = torch.from_numpy(np.array(images_v2)).type(torch.FloatTensor)
-        bboxes = torch.from_numpy(np.concatenate(bboxes, 0)).type(torch.FloatTensor)
-        clearimg = torch.from_numpy(np.array(clearimg)).type(torch.FloatTensor)
-        
-        return images_v1, images_v2, bboxes, clearimg
-    else:
-        # Original single fog mode: (image, labels, clean)
-        images  = []
-        bboxes  = []
-        clearimg = []
-        for i, (img, box, clear) in enumerate(batch):
-            images.append(img)
-            box[:, 0] = i
-            bboxes.append(box)
-            clearimg.append(clear)
-        images  = torch.from_numpy(np.array(images)).type(torch.FloatTensor)
-        bboxes  = torch.from_numpy(np.concatenate(bboxes, 0)).type(torch.FloatTensor)
-        clearimg = torch.from_numpy(np.array(clearimg)).type(torch.FloatTensor)
-            h, w    = input_shape
+    def get_random_data(self, annotation_line, clean_line, input_shape, jitter=.3, hue=.1, sat=0.7, val=0.4, random=True):
+        line = annotation_line.split()
+        clearline = clean_line.split()
+        image = Image.open(line[0])
+        image = cvtColor(image)
+        clearimg = Image.open(clearline[0])
+        clearimg = cvtColor(clearimg)
+        iw, ih = image.size
+        h, w    = input_shape
         box     = np.array([np.array(list(map(int,box.split(',')))) for box in line[1:]])
         if not random:
             scale = min(w/iw, h/ih)
@@ -396,15 +339,41 @@ class YoloDataset(Dataset):
         return merge_bbox
         
 def yolo_dataset_collate(batch):
-    images  = []
-    bboxes  = []
-    clearimg = []
-    for i, (img, box, clear) in enumerate(batch):
-        images.append(img)
-        box[:, 0] = i
-        bboxes.append(box)
-        clearimg.append(clear)
-    images  = torch.from_numpy(np.array(images)).type(torch.FloatTensor)
-    bboxes  = torch.from_numpy(np.concatenate(bboxes, 0)).type(torch.FloatTensor)
-    clearimg = torch.from_numpy(np.array(clearimg)).type(torch.FloatTensor)
-    return images, bboxes, clearimg
+    """
+    Collate function supporting both single and dual fog views.
+    """
+    # Check if dual fog mode (4 items per batch element)
+    if len(batch[0]) == 4:
+        # Dual fog mode: (view1, view2, labels, clean)
+        images_v1 = []
+        images_v2 = []
+        bboxes = []
+        clearimg = []
+        
+        for i, (img_v1, img_v2, box, clear) in enumerate(batch):
+            images_v1.append(img_v1)
+            images_v2.append(img_v2)
+            box[:, 0] = i
+            bboxes.append(box)
+            clearimg.append(clear)
+        
+        images_v1 = torch.from_numpy(np.array(images_v1)).type(torch.FloatTensor)
+        images_v2 = torch.from_numpy(np.array(images_v2)).type(torch.FloatTensor)
+        bboxes = torch.from_numpy(np.concatenate(bboxes, 0)).type(torch.FloatTensor)
+        clearimg = torch.from_numpy(np.array(clearimg)).type(torch.FloatTensor)
+        
+        return images_v1, images_v2, bboxes, clearimg
+    else:
+        # Original single fog mode: (image, labels, clean)
+        images  = []
+        bboxes  = []
+        clearimg = []
+        for i, (img, box, clear) in enumerate(batch):
+            images.append(img)
+            box[:, 0] = i
+            bboxes.append(box)
+            clearimg.append(clear)
+        images  = torch.from_numpy(np.array(images)).type(torch.FloatTensor)
+        bboxes  = torch.from_numpy(np.concatenate(bboxes, 0)).type(torch.FloatTensor)
+        clearimg = torch.from_numpy(np.array(clearimg)).type(torch.FloatTensor)
+        return images, bboxes, clearimg
