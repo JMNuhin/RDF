@@ -80,12 +80,14 @@ class YoloBody(nn.Module):
             # Severity head (takes feat3 from backbone, which has 32*transition_channels)
             self.severity_head = SeverityHead(in_channels=transition_channels * 32)
             
-            # Spatial weight heads for P3, P4, P5
-            # P3: 8*transition_channels, P4: 16*transition_channels, P5: 32*transition_channels
+            # Spatial weight heads for P3, P4, P5 BEFORE rep_conv
+            # P3: 4*transition_channels (after conv3_for_upsample2)
+            # P4: 8*transition_channels (after conv3_for_downsample1)
+            # P5: 16*transition_channels (after conv3_for_downsample2)
             self.spatial_weight_heads = MultiScaleSpatialWeights([
-                transition_channels * 8,   # P3
-                transition_channels * 16,  # P4
-                transition_channels * 32   # P5
+                transition_channels * 4,   # P3 (before rep_conv)
+                transition_channels * 8,   # P4 (before rep_conv)
+                transition_channels * 16   # P5 (before rep_conv)
             ])
 
     def fuse(self):
