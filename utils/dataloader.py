@@ -43,7 +43,34 @@ class YoloDataset(Dataset):
             nL          = len(box)
             labels_out  = np.zeros((nL, 6))
             if nL:
-                box[:, [0, 2]] = box[:, [
+                box[:, [0, 2]] = box[:, [0, 2]] / self.input_shape[1]
+                box[:, [1, 3]] = box[:, [1, 3]] / self.input_shape[0]
+                box[:, 2:4] = box[:, 2:4] - box[:, 0:2]
+                box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2
+                labels_out[:, 1] = box[:, -1]
+                labels_out[:, 2:] = box[:, :4]
+            return image_v1, image_v2, labels_out, clearimg
+        else:
+            # Original single image mode
+            image, box, clearimg = self.get_random_data(
+                self.annotation_lines[index],
+                self.clean_lines[index],
+                self.input_shape,
+                random=self.train
+            )
+            image       = np.transpose(preprocess_input(np.array(image, dtype=np.float32)), (2, 0, 1))
+            box         = np.array(box, dtype=np.float32)
+            clearimg    = np.transpose(preprocess_input(np.array(clearimg, dtype=np.float32)), (2, 0, 1))
+            nL          = len(box)
+            labels_out  = np.zeros((nL, 6))
+            if nL:
+                box[:, [0, 2]] = box[:, [0, 2]] / self.input_shape[1]
+                box[:, [1, 3]] = box[:, [1, 3]] / self.input_shape[0]
+                box[:, 2:4] = box[:, 2:4] - box[:, 0:2]
+                box[:, 0:2] = box[:, 0:2] + box[:, 2:4] / 2
+                labels_out[:, 1] = box[:, -1]
+                labels_out[:, 2:] = box[:, :4]
+            return image, labels_out, clearimg
     
     def apply_fog_augmentation(self, image_data, fog_intensity=None):
         """
