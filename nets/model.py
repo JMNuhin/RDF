@@ -98,17 +98,13 @@ class YoloBody(nn.Module):
         return self
     
     def forward(self, x):
+        # Backbone forward pass
         if self.training:
-            feat1, feat2, feat3, dehazing = self.b
-        
-        # Store pre-detection neck features for task-guided learning
-        if self.training and self.use_task_heads:
-            neck_features_P3 = P3.clone()
-            neck_features_P4 = P4.clone()
-            neck_features_P5 = P5.clone()ackbone.forward(x)
+            feat1, feat2, feat3, dehazing = self.backbone.forward(x)
         else:
             feat1, feat2, feat3 = self.backbone.forward(x)
 
+        # Neck: feature fusion
         P5          = self.sppelan(feat3)
         P5_conv     = self.conv_for_P5(P5)
         P5_upsample = self.upsample(P5_conv)
@@ -129,10 +125,25 @@ class YoloBody(nn.Module):
         P5 = torch.cat([P4_downsample, P5], 1)
         P5 = self.conv3_for_downsample2(P5)
         
+        # Store neck features BEFORE rep_conv (for task-guided learning)
+        if self.training and self.use_task_heads:
+            neck_features_P3 = P3.clone()
+            neck_features_P4 = P4.clone()
+            neck_features_P5 = P5.clone()
+        
+        # Apply rep_conv before detection heads
         P3 = self.rep_conv_1(P3)
         P4 = self.rep_conv_2(P4)
         P5 = self.rep_conv_3(P5)
-if self.use_task_heads:
+        
+        # Detection heads
+        out2 = self.yolo_head_P3(P3)
+        out1 = self.yolo_head_P4(P4)
+        out0 = self.yolo_head_P5(P5)
+
+        # Return based on mode
+        if self.training:
+            if self.use_task_heads:
                 # Compute severity from backbone feat3
                 severity_scores = self.severity_head(feat3)
                 
@@ -153,12 +164,6 @@ if self.use_task_heads:
                 }
             else:
                 # Legacy mode: just return detections and dehazing
-                
-        out2 = self.yolo_head_P3(P3)
-        out1 = self.yolo_head_P4(P4)
-        out0 = self.yolo_head_P5(P5)
-
-        if self.training:
-            return [out0, out1, out2, dehazing]
+                return [out0, out1, out2, dehazing]
         else:
             return [out0, out1, out2]
