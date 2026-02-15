@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyTorch Model Weights (large files)
+*.pth
+!yolov7_tiny_weights.pth
+# Keep the initial weights but ignore trained checkpoints
+model_data/RDFNet.pth
+logs/*.pth
+checkpoints/*.pth
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Training outputs
+logs/
+checkpoints/
+result/
+output/
+runs/
+
+# Datasets (too large for GitHub)
+VOCdevkit/
+VOC2007/
+VOC2012/
+VOC2007_FOG/
+VOC2012_FOG/
+VOCtest_06-Nov-2007/
+*.jpg
+*.jpeg
+*.png
+*.xml
+# Keep only annotation lists
+!figs/*.png
+
+# Log files
+*.log
+*.txt
+# Keep essential annotation files
+!2007_train.txt
+!2007_val.txt
+!dataset_split/*.txt
+!model_data/*.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+*.bak
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Kaggle
+/kaggle/
+.kaggle/
+
+# Environment
+.env
+venv/
+env/
+ENV/
