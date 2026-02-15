@@ -22,6 +22,10 @@ class YoloDataset(Dataset):
         self.length             = len(self.annotation_lines)
         self.bbox_attrs         = 5 + num_classes
 
+    def rand(self, a=0, b=1):
+        """Generate random number between a and b"""
+        return np.random.rand() * (b - a) + a
+
     def __len__(self):
         return self.length
     
