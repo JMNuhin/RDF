@@ -74,7 +74,14 @@ def fit_one_epoch_task_guided(
                 # Task-guided mode with dual fog views
                 # Concatenate view1 and view2 for batch processing
                 batch_size = images_v1.size(0)
-                combined_input = torch.cat([images_v1, images_v2, clean], dim=0)  # (3B, C, H, W)
+                
+                # Only include clean if it has images
+                if clean.size(0) > 0:
+                    combined_input = torch.cat([images_v1, images_v2, clean], dim=0)  # (3B, C, H, W)
+                    has_clean = True
+                else:
+                    combined_input = torch.cat([images_v1, images_v2], dim=0)  # (2B, C, H, W)
+                    has_clean = False
                 
                 # Forward pass
                 outputs = model_train(combined_input)
@@ -89,7 +96,8 @@ def fit_one_epoch_task_guided(
                 # Split features by view
                 neck_features_v1 = [f[:batch_size] for f in neck_features]
                 neck_features_v2 = [f[batch_size:2*batch_size] for f in neck_features]
-                neck_features_clean = [f[2*batch_size:] for f in neck_features]
+                if has_clean:
+                    neck_features_clean = [f[2*batch_size:] for f in neck_features]
                 
                 severity_v1 = severity[:batch_size]
                 spatial_weights_v1 = [w[:batch_size] for w in spatial_weights]
@@ -98,13 +106,16 @@ def fit_one_epoch_task_guided(
                 detect_outputs_v1 = [d[:batch_size] for d in detections]
                 loss_value_det = yolo_loss(detect_outputs_v1, targets, images_v1)
                 
-                # Dehazing loss (on all views if available)
+                # Dehazing loss (onall views if available)
                 dehazing_v1 = dehazing[:batch_size]
-                loss_dehazy = criterion(dehazing_v1, clean)
+                loss_dehazy = criterion(dehazing_v1, clean) if has_clean else torch.tensor(0.0, device=images_v1.device)
                 
                 # Task-guided losses
-                # L_align: align view1 features to clean features (supervised)
-                L_align = align_criterion(neck_features_v1, neck_features_clean, spatial_weights_v1)
+                # L_align: align view1 features to clean features (supervised) - only if clean available
+                if has_clean:
+                    L_align = align_criterion(neck_features_v1, neck_features_clean, spatial_weights_v1)
+                else:
+                    L_align = torch.tensor(0.0, device=images_v1.device)
                 
                 # L_con: contrastive between view1 and view2
                 L_con = contrast_criterion(neck_features_v1, neck_features_v2)
@@ -151,7 +162,14 @@ def fit_one_epoch_task_guided(
                 if use_task_losses and dual_fog_mode:
                     # Same as above but with autocast
                     batch_size = images_v1.size(0)
-                    combined_input = torch.cat([images_v1, images_v2, clean], dim=0)
+                    
+                    # Only include clean if it has images
+                    if clean.size(0) > 0:
+                        combined_input = torch.cat([images_v1, images_v2, clean], dim=0)
+                        has_clean = True
+                    else:
+                        combined_input = torch.cat([images_v1, images_v2], dim=0)
+                        has_clean = False
                     
                     outputs = model_train(combined_input)
                     
@@ -163,7 +181,8 @@ def fit_one_epoch_task_guided(
                     
                     neck_features_v1 = [f[:batch_size] for f in neck_features]
                     neck_features_v2 = [f[batch_size:2*batch_size] for f in neck_features]
-                    neck_features_clean = [f[2*batch_size:] for f in neck_features]
+                    if has_clean:
+                        neck_features_clean = [f[2*batch_size:] for f in neck_features]
                     
                     severity_v1 = severity[:batch_size]
                     spatial_weights_v1 = [w[:batch_size] for w in spatial_weights]
@@ -172,9 +191,12 @@ def fit_one_epoch_task_guided(
                     loss_value_det = yolo_loss(detect_outputs_v1, targets, images_v1)
                     
                     dehazing_v1 = dehazing[:batch_size]
-                    loss_dehazy = criterion(dehazing_v1, clean)
+                    loss_dehazy = criterion(dehazing_v1, clean) if has_clean else torch.tensor(0.0, device=images_v1.device)
                     
-                    L_align = align_criterion(neck_features_v1, neck_features_clean, spatial_weights_v1)
+                    if has_clean:
+                        L_align = align_criterion(neck_features_v1, neck_features_clean, spatial_weights_v1)
+                    else:
+                        L_align = torch.tensor(0.0, device=images_v1.device)
                     L_con = contrast_criterion(neck_features_v1, neck_features_v2)
                     
                     from nets.task_modules import compute_adaptive_lambda
